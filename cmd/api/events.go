@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"rest-api-in-gin/internal/database"
 	"strconv"
@@ -107,4 +108,115 @@ func (app *application) deleteEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+func (app *application) addAttendeeToEvent(c *gin.Context) {
+	eventId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event id"})
+		return
+	}
+
+	userId, err := strconv.Atoi(c.Param("userId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	event, err := app.models.Events.Get(eventId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	if event == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	userToAdd, err := app.models.Users.Get(userId)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	if userToAdd == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	existingAttendee, err := app.models.Attendees.GetByEventAndAttendee(event.Id, userToAdd.Id)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	if existingAttendee == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	attendee := database.Attendee{
+		EventId: eventId,
+		UserId:  userToAdd.Id,
+	}
+
+	_, err = app.models.Attendees.Insert(&attendee)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, attendee)
+}
+
+func (app *application) getAttendeesForEvent(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	users, err := app.models.Attendees.GetAttendeesByEvent(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}
+
+func (app *application) deleteAttendeeFromEvent(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	userId, err := app.models.Attendees.GetAttendeesByEvent(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	fmt.Println(userId)
+	userId2 := c.GetInt("userId")
+	err = app.models.Attendees.Delete(userId2, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
+}
+func (app *application) getEventsByAttendee(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	events, err := app.models.Attendees.GetEventsByAttendee(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user id"})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
 }
